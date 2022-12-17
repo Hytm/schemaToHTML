@@ -202,7 +202,12 @@ func generateWebContent(tables map[string]table, fks map[string][]foreignKey) (s
 		content.WriteString(pkUL)
 		for _, c := range t.Columns { // Write PK only
 			if c.PK {
-				content.WriteString(fmt.Sprintf(pkLI, c.Name))
+				var colDef strings.Builder
+				colDef.WriteString(fmt.Sprintf("%s %s", c.Name, c.Type))
+				if c.Default != "" {
+					colDef.WriteString(fmt.Sprintf(" (Default: %s)", c.Default))
+				}
+				content.WriteString(fmt.Sprintf(pkLI, colDef.String()))
 			}
 		}
 		content.WriteString(pkULEnd)
@@ -210,7 +215,15 @@ func generateWebContent(tables map[string]table, fks map[string][]foreignKey) (s
 		content.WriteString(colsUL)
 		for _, c := range t.Columns {
 			if !c.PK {
-				content.WriteString(fmt.Sprintf(colLI, c.Name))
+				var colDef strings.Builder
+				colDef.WriteString(fmt.Sprintf("%s %s", c.Name, c.Type))
+				if c.Nullable != "NO" {
+					colDef.WriteString(" (Nullable)")
+				}
+				if c.Default != "" {
+					colDef.WriteString(fmt.Sprintf(" (Default: %s)", c.Default))
+				}
+				content.WriteString(fmt.Sprintf(colLI, colDef.String()))
 			}
 		}
 		content.WriteString(colsULEnd)
@@ -238,7 +251,11 @@ func generateHTMLFile(dbname, web string) (string, error) {
 		"Content": web,
 	}
 
-	f, err := os.OpenFile(fname, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
+	if err := os.Truncate(fname, 0); err != nil {
+		return fname, err
+	}
+
+	f, err := os.OpenFile(fname, os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return fname, err
 	}
