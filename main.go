@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"embed"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -251,8 +252,11 @@ func generateHTMLFile(dbname, web string) (string, error) {
 		"Content": web,
 	}
 
-	if err := os.Truncate(fname, 0); err != nil {
-		return fname, err
+	//deleting file content if exists
+	if _, err := os.Stat(fname); errors.Is(err, os.ErrExist) {
+		if err := os.Truncate(fname, 0); err != nil {
+			return fname, err
+		}
 	}
 
 	f, err := os.OpenFile(fname, os.O_WRONLY|os.O_CREATE, 0600)
