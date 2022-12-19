@@ -4,10 +4,10 @@ Small tool to generate movable div to visualize a schema from a database in Cock
 The tool collects tables definitions, Primary Keys, and Foreign Keys.
 It is based on the work from @Nelms on Code Pen.
 
-![alt text](https://ibb.co/CVQF3jk "Example file")
+![alt text](https://i.ibb.co/xz6Qtnp/Screenshot-2022-12-19-at-10-57-38.png "Example file")
 
 # how to use the app
-Only use 2 parameters
+Only 2 parameters
 
 | flag          | usage                                                    | Optional      |
 | ------------- |:--------------------------------------------------------:|:-------------:|
