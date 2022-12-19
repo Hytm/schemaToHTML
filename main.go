@@ -237,38 +237,37 @@ const fkLI = `<li fk="%s">%s</li>`
 func generateWebContent(tables map[string]table, fks map[string][]foreignKey, full bool) (string, error) {
 	var content strings.Builder
 	for _, t := range tables {
+		var pkContent strings.Builder
+		var colsContent strings.Builder
+
 		content.WriteString(fmt.Sprintf(tableDiv, t.Name)) // Create table div
-		content.WriteString(pkUL)
-		for _, c := range t.Columns { // Write PK only
-			if c.PK {
-				var colDef strings.Builder
-				colDef.WriteString(fmt.Sprintf("%s %s", c.Name, c.Type))
-				if c.Default != "" && full {
-					colDef.WriteString(fmt.Sprintf(" (Default: %s)", c.Default))
-				}
-				content.WriteString(fmt.Sprintf(pkLI, colDef.String()))
-			}
-		}
-		content.WriteString(pkULEnd)
-		//Write UL for columns
-		content.WriteString(colsUL)
+		pkContent.WriteString(pkUL)
+		colsContent.WriteString(colsUL)
+		//Write Columns
 		for _, c := range t.Columns {
-			if !c.PK {
-				var colDef strings.Builder
-				colDef.WriteString(c.Name)
-				if full {
-					colDef.WriteString(fmt.Sprintf(" %s", c.Type))
-				}
-				if c.Nullable != "NO" && full {
+			var colDef strings.Builder
+			colDef.WriteString(c.Name)
+			if full {
+				colDef.WriteString(fmt.Sprintf(" %s", c.Type))
+				if c.Nullable != "NO" {
 					colDef.WriteString(" (Nullable)")
 				}
-				if c.Default != "" && full {
+				if c.Default != "" {
 					colDef.WriteString(fmt.Sprintf(" (Default: %s)", c.Default))
 				}
-				content.WriteString(fmt.Sprintf(colLI, colDef.String()))
+			}
+			if c.PK {
+				pkContent.WriteString(fmt.Sprintf(pkLI, colDef.String()))
+			} else {
+				colsContent.WriteString(fmt.Sprintf(colLI, colDef.String()))
 			}
 		}
-		content.WriteString(colsULEnd)
+		//Closing columns
+		pkContent.WriteString(pkULEnd)
+		colsContent.WriteString(colsULEnd)
+
+		content.WriteString(pkContent.String())
+		content.WriteString(colsContent.String())
 		//Write UL for FK
 		content.WriteString(fkUL)
 		for _, c := range fks[t.Name] {
@@ -294,10 +293,8 @@ func generateHTMLFile(dbname, web string) (string, error) {
 	}
 
 	//deleting file content if exists
-	if _, err := os.Stat(fname); errors.Is(err, os.ErrExist) {
-		if err := os.Truncate(fname, 0); err != nil {
-			return fname, err
-		}
+	if err := os.Remove(fname); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fname, err
 	}
 
 	f, err := os.OpenFile(fname, os.O_WRONLY|os.O_CREATE, 0600)
