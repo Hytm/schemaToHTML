@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"strings"
 	"text/template"
@@ -41,8 +42,13 @@ var htmltpl = "html.tpl"
 
 func main() {
 	cnx := flag.String("c", "", "Connexion string to Cockroach Cluster")
-	dbname := flag.String("d", "", "Database to use")
+	full := flag.Bool("f", false, "If used, will add type, nullable and default to column name. Should be harder to see everything on the screen.")
 	flag.Parse()
+
+	dbname, ok := checkConnectionString(cnx)
+	if !ok {
+		log.Fatal("Provide a connection string, with username, password and database")
+	}
 
 	db, err := sql.Open("postgres", *cnx)
 	if err != nil {
@@ -51,16 +57,19 @@ func main() {
 	defer db.Close()
 
 	tables := make(map[string]table, 0)
+	//Get tables from db
 	log.Println("grab table definitions...")
-	err = getTablesDefinition(db, tables, *dbname)
+	err = getTablesDefinition(db, tables, dbname)
 	if err != nil {
 		log.Fatal("can't get tables definition: ", err)
 	}
+	//Get PK for tables
 	log.Println("grab primary key definitions...")
 	err = getPK(db, tables)
 	if err != nil {
 		log.Fatal("can't get PK definition: ", err)
 	}
+	//Get FK for tables
 	log.Println("grab foreign key definitions...")
 	fks := make(map[string][]foreignKey)
 	err = getFK(db, fks)
@@ -69,17 +78,45 @@ func main() {
 	}
 
 	log.Println("build HTML page...")
-	web, err := generateWebContent(tables, fks)
+	web, err := generateWebContent(tables, fks, *full)
 	if err != nil {
 		log.Fatal("can't generate content: ", err)
 	}
 
-	fileName, err := generateHTMLFile(*dbname, web)
+	fileName, err := generateHTMLFile(dbname, web)
 	if err != nil {
 		log.Fatal("can't create html file: ", err)
 	}
 
 	log.Println("you can now open your schema visualization from this file: ", fileName)
+}
+
+func checkConnectionString(cnx *string) (string, bool) {
+	cnxOK := true
+	checkURL, err := url.Parse(*cnx)
+	if err != nil {
+		log.Println("can't parse connection string: ", err)
+		return "", false
+	}
+	if checkURL.Scheme != "postgres" && checkURL.Scheme != "postgresql" {
+		log.Println("invalide scheme")
+		cnxOK = false
+	}
+	if checkURL.User.Username() == "" {
+		log.Println("empty uername in connection string")
+		cnxOK = false
+	}
+	_, ok := checkURL.User.Password()
+	if !ok {
+		log.Println("empty password in connection string")
+		cnxOK = false
+	}
+	if checkURL.Path == "" || checkURL.Path == "/" {
+		log.Println("no databse provided in connection string")
+		cnxOK = false
+	}
+
+	return checkURL.Path[1:], cnxOK
 }
 
 func getTablesDefinition(db *sql.DB, tables map[string]table, dbname string) error {
@@ -101,6 +138,7 @@ func getTablesDefinition(db *sql.DB, tables map[string]table, dbname string) err
 		if err != nil {
 			return err
 		}
+
 		exists := tables[t.Name]
 		if exists.Name == t.Name {
 			exists.Columns[c.Name] = c
@@ -196,7 +234,7 @@ const fkUL = `<ul class="fk">`
 const fkULEnd = `</ul>`
 const fkLI = `<li fk="%s">%s</li>`
 
-func generateWebContent(tables map[string]table, fks map[string][]foreignKey) (string, error) {
+func generateWebContent(tables map[string]table, fks map[string][]foreignKey, full bool) (string, error) {
 	var content strings.Builder
 	for _, t := range tables {
 		content.WriteString(fmt.Sprintf(tableDiv, t.Name)) // Create table div
@@ -205,7 +243,7 @@ func generateWebContent(tables map[string]table, fks map[string][]foreignKey) (s
 			if c.PK {
 				var colDef strings.Builder
 				colDef.WriteString(fmt.Sprintf("%s %s", c.Name, c.Type))
-				if c.Default != "" {
+				if c.Default != "" && full {
 					colDef.WriteString(fmt.Sprintf(" (Default: %s)", c.Default))
 				}
 				content.WriteString(fmt.Sprintf(pkLI, colDef.String()))
@@ -217,11 +255,14 @@ func generateWebContent(tables map[string]table, fks map[string][]foreignKey) (s
 		for _, c := range t.Columns {
 			if !c.PK {
 				var colDef strings.Builder
-				colDef.WriteString(fmt.Sprintf("%s %s", c.Name, c.Type))
-				if c.Nullable != "NO" {
+				colDef.WriteString(c.Name)
+				if full {
+					colDef.WriteString(fmt.Sprintf(" %s", c.Type))
+				}
+				if c.Nullable != "NO" && full {
 					colDef.WriteString(" (Nullable)")
 				}
-				if c.Default != "" {
+				if c.Default != "" && full {
 					colDef.WriteString(fmt.Sprintf(" (Default: %s)", c.Default))
 				}
 				content.WriteString(fmt.Sprintf(colLI, colDef.String()))
