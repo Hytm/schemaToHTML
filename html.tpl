@@ -150,7 +150,7 @@ body {
 
     </style>
     <body>
-      <p>Using source code for ER diagram generation from John @Nelms CodePen</p>
+      <p>Using source code for ER diagram generation from <a href="https://codepen.io/Nelms/pen/wvMMJg" target="_blank">John @Nelms - CodePen</a></p>
       
       {{.Content}}
       <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js" crossorigin="anonymous"></script>

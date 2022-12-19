@@ -1,3 +1,4 @@
 /binaries
 build.sh
 *.html
+.DS_Store
